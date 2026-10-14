@@ -6,6 +6,15 @@
     "overview": "Open movies, shows and people on BingeBase",
     "owner": "Whatevser",
     "category": "General",
-    "versions": []
+    "versions": [
+      {
+        "version": "2.2.0.0",
+        "changelog": "CI: don't let an artifact upload hiccup block a release",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/Whatevser/BingeBase-Link-Plugin-for-Jellyfin/releases/download/v2.2.0.0/bingebase_2.2.0.0.zip",
+        "checksum": "ee9e04645f4c184968c679d87de9c6d5",
+        "timestamp": "2026-10-14T18:40:28Z"
+      }
+    ]
   }
 ]
