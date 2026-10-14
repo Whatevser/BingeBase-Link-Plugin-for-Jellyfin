@@ -73,8 +73,11 @@ jobs:
             version: $v, targetAbi: $abi, timestamp: $ts, changelog: $cl,
             status: "Active", autoUpdate: true, assemblies: []
           }' > pkg/meta.json
-          (cd pkg && zip -q "../$ZIP" *)
-          echo "md5=$(md5sum "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          (cd pkg && python3 -m zipfile -c "../$ZIP" Jellyfin.Plugin.BingeBase.dll meta.json)
+          test -s "$ZIP" || { echo "::error::$ZIP was not created"; exit 1; }
+          md5=$(md5sum "$ZIP" | cut -d' ' -f1)
+          echo "md5=$md5" >> "$GITHUB_OUTPUT"
+          echo "::notice::$ZIP $(stat -c%s "$ZIP") bytes, md5 $md5"
 
       - uses: actions/upload-artifact@v6
         with:
