@@ -80,6 +80,7 @@ jobs:
           echo "::notice::$ZIP $(stat -c%s "$ZIP") bytes, md5 $md5"
 
       - uses: actions/upload-artifact@v6
+        continue-on-error: true
         with:
           name: bingebase_${{ steps.meta.outputs.version }}
           path: pkg/
