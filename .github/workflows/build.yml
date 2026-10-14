@@ -7,6 +7,11 @@ on:
     paths-ignore: ['manifest.json', '**.md', 'docs/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a release (tag v<Version> from the .csproj) and add it to manifest.json
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -14,6 +19,8 @@ permissions:
 env:
   PROJECT: Jellyfin.Plugin.BingeBase/Jellyfin.Plugin.BingeBase.csproj
   PLUGIN_GUID: 6f4b2a1e-9c3d-4e8a-b7f2-1d5a3c9e8b40
+  # A release happens on a pushed v* tag, or on a manual run with "release" ticked.
+  RELEASE: ${{ github.ref_type == 'tag' || inputs.release == true }}
 
 jobs:
   build:
@@ -36,6 +43,7 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match <Version>$version</Version> in the .csproj"
             exit 1
           fi
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "abi=$abi" >> "$GITHUB_OUTPUT"
           echo "zip=bingebase_$version.zip" >> "$GITHUB_OUTPUT"
@@ -74,15 +82,17 @@ jobs:
           path: pkg/
 
       - name: Create release
-        if: github.ref_type == 'tag'
+        if: env.RELEASE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
           ZIP: ${{ steps.meta.outputs.zip }}
-        run: gh release create "$GITHUB_REF_NAME" "$ZIP" --title "BingeBase $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$TAG" "$ZIP" --target "$GITHUB_SHA" --title "BingeBase $TAG" --generate-notes
 
       - name: Add release to plugin repository manifest
-        if: github.ref_type == 'tag'
+        if: env.RELEASE == 'true'
         env:
+          TAG: ${{ steps.meta.outputs.tag }}
           VERSION: ${{ steps.meta.outputs.version }}
           ABI: ${{ steps.meta.outputs.abi }}
           ZIP: ${{ steps.meta.outputs.zip }}
@@ -91,7 +101,7 @@ jobs:
           MD5: ${{ steps.pkg.outputs.md5 }}
         run: |
           git checkout main
-          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$ZIP"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ZIP"
           jq --arg v "$VERSION" --arg abi "$ABI" --arg url "$url" --arg md5 "$MD5" \
              --arg ts "$TIMESTAMP" --arg cl "$CHANGELOG" '
             .[0].versions = ([{ version: $v, changelog: $cl, targetAbi: $abi,

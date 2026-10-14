@@ -100,10 +100,12 @@ GitHub Actions builds every push. Each run's zip is attached as an artifact unde
 
 To publish a release:
 
-1. **Bump the version.** Raise `<Version>` in `Jellyfin.Plugin.BingeBase/Jellyfin.Plugin.BingeBase.csproj` and commit.
-2. **Push a matching tag**, e.g. `git tag v2.3.0.0 && git push origin v2.3.0.0`.
+1. **Bump the version.** Raise `<Version>` in `Jellyfin.Plugin.BingeBase/Jellyfin.Plugin.BingeBase.csproj` and push.
+2. **Start the release**, either way:
+   - **From GitHub:** go to **Actions → Build → Run workflow**, tick **release**, and run it.
+   - **From git:** push a matching tag, e.g. `git tag v2.3.0.0 && git push origin v2.3.0.0`.
 
-The workflow then builds the zip, creates the GitHub release, and adds the version to `manifest.json`. Servers using the plugin repository pick it up automatically.
+The workflow then builds the zip, creates the GitHub release with tag `v<Version>`, and adds the version to `manifest.json`. Servers using the plugin repository pick it up automatically.
 
 Local build (needs the .NET 10 SDK):
 
