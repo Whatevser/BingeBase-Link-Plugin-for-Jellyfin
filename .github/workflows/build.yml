@@ -87,7 +87,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.meta.outputs.tag }}
           ZIP: ${{ steps.meta.outputs.zip }}
-        run: gh release create "$TAG" "$ZIP" --target "$GITHUB_SHA" --title "BingeBase $TAG" --generate-notes
+        run: |
+          if ! out=$(gh release create "$TAG" "$ZIP" --target "$GITHUB_SHA" --title "BingeBase $TAG" --generate-notes 2>&1); then
+            echo "::error::gh release create failed: $(echo "$out" | tr '\n' ' ')"
+            exit 1
+          fi
+          echo "$out"
 
       - name: Add release to plugin repository manifest
         if: env.RELEASE == 'true'
