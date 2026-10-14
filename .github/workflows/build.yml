@@ -48,7 +48,10 @@ jobs:
           echo "abi=$abi" >> "$GITHUB_OUTPUT"
           echo "zip=bingebase_$version.zip" >> "$GITHUB_OUTPUT"
           echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-          echo "changelog=$(git log -1 --format=%s)" >> "$GITHUB_OUTPUT"
+          # Changelog: commit subjects since the previous release, minus CI/manifest housekeeping.
+          prev=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
+          changelog=$(git log --format=%s ${prev:+$prev..}HEAD | grep -vE '^(CI|manifest):' | paste -sd ';' | sed 's/;/; /g')
+          echo "changelog=${changelog:-Release $version}" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: dotnet build "$PROJECT" -c Release -o out
