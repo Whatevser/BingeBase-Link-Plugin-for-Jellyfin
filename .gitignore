@@ -1,0 +1,9 @@
+bin/
+obj/
+out/
+pkg/
+*.zip
+.vs/
+.vscode/
+.idea/
+*.user

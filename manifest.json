@@ -1,0 +1,11 @@
+[
+  {
+    "guid": "6f4b2a1e-9c3d-4e8a-b7f2-1d5a3c9e8b40",
+    "name": "BingeBase",
+    "description": "Adds a BingeBase button next to Played / Favorite on movies, shows and people in the Jellyfin web client.",
+    "overview": "Open movies, shows and people on BingeBase",
+    "owner": "Whatevser",
+    "category": "General",
+    "versions": []
+  }
+]

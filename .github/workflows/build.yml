@@ -1,0 +1,104 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['manifest.json', '**.md', 'docs/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PROJECT: Jellyfin.Plugin.BingeBase/Jellyfin.Plugin.BingeBase.csproj
+  PLUGIN_GUID: 6f4b2a1e-9c3d-4e8a-b7f2-1d5a3c9e8b40
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read versions
+        id: meta
+        run: |
+          version=$(grep -oP '(?<=<Version>)[^<]+' "$PROJECT")
+          abi=$(grep -oP '(?<=<JellyfinVersion>)[^<]+' "$PROJECT")
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match <Version>$version</Version> in the .csproj"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "abi=$abi" >> "$GITHUB_OUTPUT"
+          echo "zip=bingebase_$version.zip" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "changelog=$(git log -1 --format=%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: dotnet build "$PROJECT" -c Release -o out
+
+      - name: Package
+        id: pkg
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          ABI: ${{ steps.meta.outputs.abi }}
+          ZIP: ${{ steps.meta.outputs.zip }}
+          TIMESTAMP: ${{ steps.meta.outputs.timestamp }}
+          CHANGELOG: ${{ steps.meta.outputs.changelog }}
+        run: |
+          mkdir pkg
+          cp out/Jellyfin.Plugin.BingeBase.dll pkg/
+          # meta.json lets a manually extracted zip show up properly in the dashboard.
+          jq -n --arg guid "$PLUGIN_GUID" --arg v "$VERSION" --arg abi "$ABI" \
+                --arg ts "$TIMESTAMP" --arg cl "$CHANGELOG" '{
+            guid: $guid, name: "BingeBase", category: "General", owner: "Whatevser",
+            description: "Adds a BingeBase button next to Played / Favorite in the web client.",
+            overview: "Open movies, shows and people on BingeBase",
+            version: $v, targetAbi: $abi, timestamp: $ts, changelog: $cl,
+            status: "Active", autoUpdate: true, assemblies: []
+          }' > pkg/meta.json
+          (cd pkg && zip -q "../$ZIP" *)
+          echo "md5=$(md5sum "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bingebase_${{ steps.meta.outputs.version }}
+          path: pkg/
+
+      - name: Create release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.meta.outputs.zip }}
+        run: gh release create "$GITHUB_REF_NAME" "$ZIP" --title "BingeBase $GITHUB_REF_NAME" --generate-notes
+
+      - name: Add release to plugin repository manifest
+        if: github.ref_type == 'tag'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          ABI: ${{ steps.meta.outputs.abi }}
+          ZIP: ${{ steps.meta.outputs.zip }}
+          TIMESTAMP: ${{ steps.meta.outputs.timestamp }}
+          CHANGELOG: ${{ steps.meta.outputs.changelog }}
+          MD5: ${{ steps.pkg.outputs.md5 }}
+        run: |
+          git checkout main
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$ZIP"
+          jq --arg v "$VERSION" --arg abi "$ABI" --arg url "$url" --arg md5 "$MD5" \
+             --arg ts "$TIMESTAMP" --arg cl "$CHANGELOG" '
+            .[0].versions = ([{ version: $v, changelog: $cl, targetAbi: $abi,
+                                sourceUrl: $url, checksum: $md5, timestamp: $ts }]
+                             + (.[0].versions | map(select(.version != $v))))
+          ' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "manifest: add $VERSION"
+          git push origin main
